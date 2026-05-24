@@ -1,0 +1,407 @@
+package rules;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import com.ftn.sbnz.model.Diagnosis;
+import com.ftn.sbnz.model.DTCCode;
+import com.ftn.sbnz.model.FaultCandidate;
+import com.ftn.sbnz.model.Recommendation;
+import com.ftn.sbnz.model.RecommendationFactory;
+import com.ftn.sbnz.model.SensorReading;
+import com.ftn.sbnz.model.Symptom;
+import com.ftn.sbnz.model.SystemProblem;
+import com.ftn.sbnz.model.Vehicle;
+import com.ftn.sbnz.model.VehicleThresholds;
+import com.ftn.sbnz.model.enums.ActionType;
+import com.ftn.sbnz.model.enums.Component;
+import com.ftn.sbnz.model.enums.CostRange;
+import com.ftn.sbnz.model.enums.DTCStatus;
+import com.ftn.sbnz.model.enums.EngineType;
+import com.ftn.sbnz.model.enums.ProblemStatus;
+import com.ftn.sbnz.model.enums.ServiceType;
+import com.ftn.sbnz.model.enums.SymptomType;
+import com.ftn.sbnz.model.enums.Urgency;
+import com.ftn.sbnz.model.enums.VehicleSystem;
+
+global java.util.List ruleTrace;
+
+rule "M1-BR-01 Check engine and P0300 mark ignition system suspect"
+when
+    Symptom(type == SymptomType.WARNING_CHECK_ENGINE)
+    DTCCode(code == "P0300", status == DTCStatus.ACTIVE)
+    not SystemProblem(system == VehicleSystem.IGNITION_SYSTEM, source == "Check engine and random misfire DTC")
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new SystemProblem(
+        VehicleSystem.IGNITION_SYSTEM,
+        ProblemStatus.SUSPECTED,
+        Urgency.MEDIUM,
+        "Check engine and random misfire DTC"
+    ));
+end
+
+rule "M1-BR-02 Cylinder misfire candidate from DTC and power loss"
+when
+    DTCCode(code matches "P030[1-4]", status == DTCStatus.ACTIVE)
+    Symptom(type == SymptomType.POWER_LOSS)
+    not FaultCandidate(component == Component.IGNITION_COIL)
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new FaultCandidate(
+        Component.IGNITION_COIL,
+        VehicleSystem.IGNITION_SYSTEM,
+        0.72,
+        Urgency.MEDIUM,
+        Arrays.asList("cylinder-specific misfire DTC", "driver reported power loss")
+    ));
+end
+
+rule "M1-BR-03 Cooling threshold creates system problem"
+when
+    Vehicle($engineType : engineType)
+    VehicleThresholds(engineType == $engineType, $maxCoolantTemp : maxCoolantTemp)
+    Symptom(type == SymptomType.WARNING_COOLANT_TEMP)
+    SensorReading(name == "coolant_temp", value > $maxCoolantTemp)
+    not SystemProblem(system == VehicleSystem.COOLING_SYSTEM)
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new SystemProblem(
+        VehicleSystem.COOLING_SYSTEM,
+        ProblemStatus.ACTIVE,
+        Urgency.HIGH,
+        "Coolant warning and temperature above configured threshold"
+    ));
+end
+
+rule "M1-BR-04 Oil pressure critical fault candidate"
+when
+    Vehicle(engineRunning == true, $engineType : engineType)
+    VehicleThresholds(engineType == $engineType, $minOilPressure : minOilPressure)
+    Symptom(type == SymptomType.WARNING_OIL_PRESSURE)
+    SensorReading(name == "oil_pressure", value < $minOilPressure)
+    not FaultCandidate(component == Component.OIL_PUMP)
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new FaultCandidate(
+        Component.OIL_PUMP,
+        VehicleSystem.LUBRICATION_SYSTEM,
+        0.95,
+        Urgency.CRITICAL,
+        Arrays.asList("oil pressure warning", "oil pressure below minimum", "engine running")
+    ));
+end
+
+rule "M1-BR-05 EGR restriction candidate from P0401 and black smoke"
+when
+    Vehicle(engineType == EngineType.DIESEL, $engineType : engineType)
+    VehicleThresholds(engineType == $engineType, $minMafNormal : minMafNormal)
+    DTCCode(code == "P0401", status == DTCStatus.ACTIVE)
+    Symptom(type == SymptomType.BLACK_EXHAUST_SMOKE)
+    SensorReading(name == "maf", value < $minMafNormal)
+    not FaultCandidate(component == Component.EGR_VALVE)
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new SystemProblem(
+        VehicleSystem.EGR_SYSTEM,
+        ProblemStatus.SUSPECTED,
+        Urgency.HIGH,
+        "P0401 with black smoke and low MAF"
+    ));
+    insert(new FaultCandidate(
+        Component.EGR_VALVE,
+        VehicleSystem.FUEL_AIR_SYSTEM,
+        0.84,
+        Urgency.HIGH,
+        Arrays.asList("P0401 active", "black exhaust smoke", "MAF below expected diesel range")
+    ));
+end
+
+rule "M1-BR-06 Lambda sensor fault candidate"
+when
+    DTCCode(code == "P0131" || code == "P0132", status == DTCStatus.ACTIVE)
+    Symptom(type == SymptomType.INCREASED_FUEL_CONSUMPTION)
+    not FaultCandidate(component == Component.LAMBDA_SENSOR)
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new FaultCandidate(
+        Component.LAMBDA_SENSOR,
+        VehicleSystem.FUEL_AIR_SYSTEM,
+        0.70,
+        Urgency.MEDIUM,
+        Arrays.asList("lambda sensor DTC", "increased fuel consumption")
+    ));
+end
+
+rule "M1-BR-07 Charging system candidate"
+when
+    Vehicle(engineRunning == true)
+    Symptom(type == SymptomType.WARNING_BATTERY)
+    SensorReading(name == "battery_voltage", value < 12.0)
+    not FaultCandidate(component == Component.ALTERNATOR)
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new FaultCandidate(
+        Component.ALTERNATOR,
+        VehicleSystem.ELECTRICAL_SYSTEM,
+        0.78,
+        Urgency.HIGH,
+        Arrays.asList("battery warning", "voltage below 12V while engine is running")
+    ));
+end
+
+rule "M1-BR-08 Brake pad or warped disc candidate"
+when
+    Symptom(type == SymptomType.BRAKE_SQUEAL)
+    Symptom(type == SymptomType.STEERING_WHEEL_VIBRATION)
+    not FaultCandidate(component == Component.BRAKE_PAD_OR_DISC)
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new FaultCandidate(
+        Component.BRAKE_PAD_OR_DISC,
+        VehicleSystem.BRAKE_SYSTEM,
+        0.76,
+        Urgency.HIGH,
+        Arrays.asList("brake squeal", "vibration while braking")
+    ));
+end
+
+rule "M1-BR-09 Low tyre pressure candidate"
+when
+    VehicleThresholds($recommended : recommendedTyrePressure)
+    Symptom(type == SymptomType.TPMS_WARNING)
+    SensorReading(name == "tyre_pressure", $pressure : value)
+    eval($pressure < $recommended && $pressure >= $recommended * 0.80 && $pressure <= $recommended * 0.90)
+    not FaultCandidate(component == Component.LOW_TYRE_PRESSURE)
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new FaultCandidate(
+        Component.LOW_TYRE_PRESSURE,
+        VehicleSystem.TYRE_SYSTEM,
+        0.55,
+        Urgency.LOW,
+        Arrays.asList("TPMS warning", "pressure is 10-20 percent below recommendation", "no rapid pressure loss")
+    ));
+end
+
+rule "M1-BR-10 Transmission or clutch candidate"
+when
+    Symptom(type == SymptomType.GEAR_CHANGE_JERK)
+    not DTCCode(code matches "P030[0-4]", status == DTCStatus.ACTIVE)
+    not FaultCandidate(component == Component.TRANSMISSION_OR_CLUTCH)
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new FaultCandidate(
+        Component.TRANSMISSION_OR_CLUTCH,
+        VehicleSystem.TRANSMISSION_SYSTEM,
+        0.63,
+        Urgency.MEDIUM,
+        Arrays.asList("jerking during gear change", "no engine misfire DTC present")
+    ));
+end
+
+rule "M1-FWD Turbo overpressure candidate for recommendation rule"
+when
+    DTCCode(code == "P0234", status == DTCStatus.ACTIVE)
+    SensorReading(name == "boost_pressure", value > 2.0)
+    not FaultCandidate(component == Component.TURBO_ACTUATOR)
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new FaultCandidate(
+        Component.TURBO_ACTUATOR,
+        VehicleSystem.FUEL_AIR_SYSTEM,
+        0.71,
+        Urgency.HIGH,
+        Arrays.asList("P0234 turbo overpressure", "boost pressure above maximum")
+    ));
+end
+
+rule "M2-FWD Final diagnosis and base recommendation"
+when
+    $candidate : FaultCandidate(
+        $component : component,
+        $system : system,
+        $confidence : confidence,
+        $urgency : urgency
+    )
+    not Diagnosis(component == $component)
+then
+    ruleTrace.add(drools.getRule().getName() + " -> " + $component);
+    Diagnosis diagnosis = new Diagnosis(
+        $component,
+        $system,
+        $confidence,
+        $urgency,
+        RecommendationFactory.diagnosisText($component),
+        new ArrayList(ruleTrace)
+    );
+    insert(diagnosis);
+    insert(RecommendationFactory.fromDiagnosis(diagnosis));
+end
+
+rule "M2-BR-01 Critical diagnosis gets stop-driving recommendation"
+when
+    Diagnosis(urgency == Urgency.CRITICAL, $component : component)
+    not Recommendation(warningText == "Safety-critical diagnosis detected. Stop driving immediately.")
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new Recommendation(
+        ActionType.STOP_DRIVING_IMMEDIATELY,
+        ServiceType.MECHANIC,
+        CostRange.HIGH,
+        Urgency.CRITICAL,
+        "Safety-critical diagnosis detected. Stop driving immediately.",
+        Arrays.asList($component)
+    ));
+end
+
+rule "M2-BR-02 Two high diagnoses in one system escalate combined risk"
+when
+    $diagnosis : Diagnosis($system : system, urgency == Urgency.HIGH, $component : component)
+    Number(intValue >= 2) from accumulate(
+        Diagnosis(system == $system, urgency == Urgency.HIGH),
+        count(1)
+    )
+    not Recommendation(warningText == "Combined high-risk faults in one system. Treat as critical.")
+then
+    ruleTrace.add(drools.getRule().getName());
+    modify($diagnosis) { setUrgency(Urgency.CRITICAL) };
+    insert(new Recommendation(
+        ActionType.STOP_DRIVING_IMMEDIATELY,
+        ServiceType.MECHANIC,
+        CostRange.HIGH,
+        Urgency.CRITICAL,
+        "Combined high-risk faults in one system. Treat as critical.",
+        Arrays.asList($component)
+    ));
+end
+
+rule "M2-BR-03 Electrical system route"
+when
+    Diagnosis(system == VehicleSystem.ELECTRICAL_SYSTEM, $component : component)
+    not Recommendation(warningText == "Electrical route: visit an auto-electrician for charging system diagnostics.")
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new Recommendation(
+        ActionType.REPAIR_WITHIN_48H,
+        ServiceType.AUTO_ELECTRICIAN,
+        CostRange.MEDIUM,
+        Urgency.HIGH,
+        "Electrical route: visit an auto-electrician for charging system diagnostics.",
+        Arrays.asList($component)
+    ));
+end
+
+rule "M2-BR-04 Brake system route"
+when
+    Diagnosis(system == VehicleSystem.BRAKE_SYSTEM, $component : component)
+    not Recommendation(warningText == "Brake route: immediate brake service inspection is required.")
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new Recommendation(
+        ActionType.REPAIR_WITHIN_48H,
+        ServiceType.BRAKE_SERVICE,
+        CostRange.MEDIUM,
+        Urgency.HIGH,
+        "Brake route: immediate brake service inspection is required.",
+        Arrays.asList($component)
+    ));
+end
+
+rule "M2-BR-05 Low tyre pressure gets tyre shop route"
+when
+    Diagnosis(component == Component.LOW_TYRE_PRESSURE)
+    not Recommendation(warningText == "Tyre route: inspect for slow puncture and recheck pressure after inflation.")
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new Recommendation(
+        ActionType.MONITOR,
+        ServiceType.TYRE_SHOP,
+        CostRange.LOW,
+        Urgency.LOW,
+        "Tyre route: inspect for slow puncture and recheck pressure after inflation.",
+        Arrays.asList(Component.LOW_TYRE_PRESSURE)
+    ));
+end
+
+rule "M2-BR-06 Lambda sensor cost range"
+when
+    Diagnosis(component == Component.LAMBDA_SENSOR)
+    not Recommendation(warningText == "Cost estimate: lambda sensor repair is usually low to medium cost.")
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new Recommendation(
+        ActionType.REPAIR_BEFORE_NEXT_SERVICE,
+        ServiceType.MECHANIC,
+        CostRange.LOW_TO_MEDIUM,
+        Urgency.MEDIUM,
+        "Cost estimate: lambda sensor repair is usually low to medium cost.",
+        Arrays.asList(Component.LAMBDA_SENSOR)
+    ));
+end
+
+rule "M2-BR-07 Turbo actuator cost range"
+when
+    Diagnosis(component == Component.TURBO_ACTUATOR)
+    not Recommendation(warningText == "Cost estimate: turbo actuator repair is high cost.")
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new Recommendation(
+        ActionType.REPAIR_WITHIN_48H,
+        ServiceType.DIESEL_SPECIALIST,
+        CostRange.HIGH,
+        Urgency.HIGH,
+        "Cost estimate: turbo actuator repair is high cost.",
+        Arrays.asList(Component.TURBO_ACTUATOR)
+    ));
+end
+
+rule "M2-BR-08 White smoke and overheating warning"
+when
+    Symptom(type == SymptomType.WHITE_EXHAUST_SMOKE)
+    SystemProblem(system == VehicleSystem.COOLING_SYSTEM)
+    not Recommendation(warningText == "Driver warning: white smoke with overheating can indicate head gasket or coolant leak risk.")
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new Recommendation(
+        ActionType.STOP_DRIVING_IMMEDIATELY,
+        ServiceType.MECHANIC,
+        CostRange.HIGH,
+        Urgency.CRITICAL,
+        "Driver warning: white smoke with overheating can indicate head gasket or coolant leak risk.",
+        Arrays.asList(Component.THERMOSTAT)
+    ));
+end
+
+rule "M2-BR-09 EGR fault adds secondary DPF warning"
+when
+    Diagnosis(component == Component.EGR_VALVE)
+    Symptom(type == SymptomType.BLACK_EXHAUST_SMOKE)
+    not Recommendation(warningText == "Secondary warning: unresolved EGR restriction with black smoke can overload the DPF.")
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new Recommendation(
+        ActionType.REPAIR_WITHIN_48H,
+        ServiceType.DIESEL_SPECIALIST,
+        CostRange.MEDIUM,
+        Urgency.HIGH,
+        "Secondary warning: unresolved EGR restriction with black smoke can overload the DPF.",
+        Arrays.asList(Component.EGR_VALVE)
+    ));
+end
+
+rule "M2-BR-10 Low-confidence non-critical diagnosis asks for monitoring"
+when
+    Diagnosis(confidence < 0.60, urgency != Urgency.CRITICAL, $component : component)
+    not Recommendation(warningText == "Confidence below 60 percent: repeat scan before replacing parts.")
+then
+    ruleTrace.add(drools.getRule().getName());
+    insert(new Recommendation(
+        ActionType.MONITOR,
+        ServiceType.MECHANIC,
+        CostRange.LOW,
+        Urgency.LOW,
+        "Confidence below 60 percent: repeat scan before replacing parts.",
+        Arrays.asList($component)
+    ));
+end

@@ -1,0 +1,15 @@
+package com.ftn.sbnz.model.enums;
+
+public enum VehicleSystem {
+    ENGINE,
+    COOLING_SYSTEM,
+    LUBRICATION_SYSTEM,
+    IGNITION_SYSTEM,
+    FUEL_AIR_SYSTEM,
+    ELECTRICAL_SYSTEM,
+    BRAKE_SYSTEM,
+    TYRE_SYSTEM,
+    EGR_SYSTEM,
+    TURBO_SYSTEM,
+    TRANSMISSION_SYSTEM
+}

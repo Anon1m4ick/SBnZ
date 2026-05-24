@@ -1,0 +1,16 @@
+package com.ftn.sbnz.model.enums;
+
+public enum Component {
+    RANDOM_MISFIRE_GROUP,
+    OIL_PUMP,
+    THERMOSTAT,
+    EGR_VALVE,
+    IGNITION_COIL,
+    SPARK_PLUG,
+    LOW_TYRE_PRESSURE,
+    ALTERNATOR,
+    LAMBDA_SENSOR,
+    BRAKE_PAD_OR_DISC,
+    TRANSMISSION_OR_CLUTCH,
+    TURBO_ACTUATOR
+}
