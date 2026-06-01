@@ -50,6 +50,7 @@ There are also two supporting production rules: one turns candidates into final 
 ```powershell
 mvn clean test
 mvn -DskipTests package
+export JAVA_HOME=~/Library/Java/JavaVirtualMachines/corretto-17.0.13/Contents/Home
 java -jar service\target\service-0.0.1-SNAPSHOT.jar
 ```
 
@@ -92,16 +93,18 @@ mvn -version
 Implements proposal section **4.3 Template Mechanism – Parameterization by Vehicle Type**:
 
 - Template file: `kjar/src/main/resources/templatetable/sensor_thresholds.drt`
-- Parameter table: `VehicleThresholds` rows for PETROL / DIESEL / HYBRID in `ThresholdTemplateService`
+- Parameter table: `SensorThresholdRow` rows for PETROL / DIESEL / HYBRID in `ThresholdTemplateService`
 - Runtime compilation: `ObjectDataCompiler` → generated DRL → `KieSession` (isolated from main `vehicle-diagnosis.drl`)
 
 **Threshold table :**
 
-| engineType | maxCoolantTemp | minOilPressure |
-|------------|----------------|----------------|
-| PETROL     | 110            | 1.0            |
-| DIESEL     | 105            | 1.2            |
-| HYBRID     | 100            | 0.9            |
+| engineType | maxCoolantTemp | minOilPressure | voltageMin | voltageMax |
+|------------|----------------|----------------|------------|------------|
+| PETROL     | 110            | 1.0            | 13.5       | 14.8       |
+| DIESEL     | 105            | 1.2            | 13.5       | 14.8       |
+| HYBRID     | 100            | 0.9            | 13.8       | 15.2       |
+
+Three rule types (coolant overheating, low oil pressure, battery voltage out of range) generate **9 rules** (3 per engine type).
 
 **Test:** `mvn -pl service -Dtest=SensorThresholdTemplateTest test`
 
@@ -109,16 +112,16 @@ After starting the service (`java -jar service/target/service-0.0.1-SNAPSHOT.jar
 
 | URL | What it shows |
 |-----|----------------|
-| http://localhost:8080/api/diagnostics/template/drl | Generated DRL from `.drt` + parameter table (6 rules: 2 per engine type) |
-| http://localhost:8080/api/diagnostics/template/demo?coolant=108&oil=0.95 | Same sensor readings, **different** results for PETROL / DIESEL / HYBRID |
-| http://localhost:8080/api/diagnostics/template/scenario?engine=DIESEL&coolant=108&oil=5.0 | Single engine type scenario |
+| http://localhost:8080/api/diagnostics/template/drl | Generated DRL from `.drt` + parameter table (9 rules: 3 per engine type) |
+| http://localhost:8080/api/diagnostics/template/demo?coolant=108&oil=0.95&voltage=13.6 | Same sensor readings, **different** results for PETROL / DIESEL / HYBRID |
+| http://localhost:8080/api/diagnostics/template/scenario?engine=DIESEL&coolant=108&oil=5.0&voltage=14.0 | Single engine type scenario |
 
-**Expected demo result** (`/template/demo?coolant=108&oil=0.95`):
+**Expected demo result** (`/template/demo?coolant=108&oil=0.95&voltage=13.6`):
 
-- **PETROL** (threshold 110°C): coolant 108 → no overheating rule; oil 0.95 → low oil pressure rule fires
-- **DIESEL** (threshold 105°C): both overheating and low oil pressure rules fire
-- **HYBRID** (threshold 100°C): overheating fires; oil 0.95 is above 0.9 → no oil rule
+- **PETROL** (110°C / 1.0 bar / 13.5-14.8 V): coolant 108 < 110 no; oil 0.95 < 1.0 yes; voltage 13.6 in range no → 1 rule (oil)
+- **DIESEL** (105°C / 1.2 bar / 13.5-14.8 V): coolant 108 > 105 yes; oil 0.95 < 1.2 yes; voltage 13.6 in range no → 2 rules (cooling + oil)
+- **HYBRID** (100°C / 0.9 bar / 13.8-15.2 V): coolant 108 > 100 yes; oil 0.95 > 0.9 no; voltage 13.6 < 13.8 yes → 2 rules (cooling + electrical)
 
-Optional query parameters for `/template/demo`: `coolant`, `oil` (defaults: `108`, `0.95`).
+Optional query parameters for `/template/demo`: `coolant`, `oil`, `voltage` (defaults: `108`, `0.95`, `13.6`).
 
-For `/template/scenario`: required `engine` (`PETROL`, `DIESEL`, or `HYBRID`); optional `coolant`, `oil`.
+For `/template/scenario`: required `engine` (`PETROL`, `DIESEL`, or `HYBRID`); optional `coolant`, `oil`, `voltage`.

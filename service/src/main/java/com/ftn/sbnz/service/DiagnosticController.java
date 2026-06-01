@@ -82,16 +82,18 @@ public class DiagnosticController {
     @GetMapping("/template/demo")
     public List<TemplateScenarioResult> templateDemo(
             @RequestParam(defaultValue = "108") double coolant,
-            @RequestParam(defaultValue = "0.95") double oil) {
-        return thresholdTemplateService.runComparison(coolant, oil);
+            @RequestParam(defaultValue = "0.95") double oil,
+            @RequestParam(defaultValue = "13.6") double voltage) {
+        return thresholdTemplateService.runComparison(coolant, oil, voltage);
     }
 
     @GetMapping("/template/scenario")
     public TemplateScenarioResult templateScenario(
             @RequestParam EngineType engine,
             @RequestParam(defaultValue = "108") double coolant,
-            @RequestParam(defaultValue = "0.95") double oil) {
-        return thresholdTemplateService.runScenario(engine, coolant, oil);
+            @RequestParam(defaultValue = "0.95") double oil,
+            @RequestParam(defaultValue = "13.6") double voltage) {
+        return thresholdTemplateService.runScenario(engine, coolant, oil, voltage);
     }
 
     @PostMapping

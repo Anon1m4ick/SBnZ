@@ -9,15 +9,17 @@ public class TemplateScenarioResult {
     private final EngineType engineType;
     private final double coolantTemp;
     private final double oilPressure;
+    private final double voltage;
     private final int firedRuleCount;
     private final List<String> firedRules;
     private final List<SystemProblem> systemProblems;
 
-    public TemplateScenarioResult(EngineType engineType, double coolantTemp, double oilPressure,
+    public TemplateScenarioResult(EngineType engineType, double coolantTemp, double oilPressure, double voltage,
             int firedRuleCount, List<String> firedRules, List<SystemProblem> systemProblems) {
         this.engineType = engineType;
         this.coolantTemp = coolantTemp;
         this.oilPressure = oilPressure;
+        this.voltage = voltage;
         this.firedRuleCount = firedRuleCount;
         this.firedRules = firedRules;
         this.systemProblems = systemProblems;
@@ -33,6 +35,10 @@ public class TemplateScenarioResult {
 
     public double getOilPressure() {
         return oilPressure;
+    }
+
+    public double getVoltage() {
+        return voltage;
     }
 
     public int getFiredRuleCount() {

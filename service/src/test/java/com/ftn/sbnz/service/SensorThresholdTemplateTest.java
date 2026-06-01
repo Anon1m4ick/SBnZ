@@ -22,13 +22,15 @@ class SensorThresholdTemplateTest {
         assertThat(drl).contains("EngineType.HYBRID");
         assertThat(drl).contains("TPL Coolant overheating");
         assertThat(drl).contains("TPL Low oil pressure");
+        assertThat(drl).contains("TPL Battery voltage out of range");
     }
 
     @Test
     void sameCoolantReadingTriggersDifferentResultPerEngineType() {
         // 108 C is above the diesel threshold (105) but below the petrol threshold (110).
-        TemplateScenarioResult diesel = templateService.runScenario(EngineType.DIESEL, 108.0, 5.0);
-        TemplateScenarioResult petrol = templateService.runScenario(EngineType.PETROL, 108.0, 5.0);
+        // Voltage 14.0 is in range for every engine type, so only the coolant rule can differ.
+        TemplateScenarioResult diesel = templateService.runScenario(EngineType.DIESEL, 108.0, 5.0, 14.0);
+        TemplateScenarioResult petrol = templateService.runScenario(EngineType.PETROL, 108.0, 5.0, 14.0);
 
         assertThat(coolingProblems(diesel)).isPositive();
         assertThat(coolingProblems(petrol)).isZero();
@@ -36,8 +38,19 @@ class SensorThresholdTemplateTest {
     }
 
     @Test
+    void lowVoltageTriggersElectricalProblemOnlyForHybrid() {
+        // 13.6 V is below the hybrid minimum (13.8) but inside the petrol/diesel range (13.5-14.8).
+        TemplateScenarioResult hybrid = templateService.runScenario(EngineType.HYBRID, 95.0, 5.0, 13.6);
+        TemplateScenarioResult petrol = templateService.runScenario(EngineType.PETROL, 95.0, 5.0, 13.6);
+
+        assertThat(electricalProblems(hybrid)).isPositive();
+        assertThat(electricalProblems(petrol)).isZero();
+        assertThat(hybrid.getFiredRules()).anyMatch(name -> name.contains("Battery voltage"));
+    }
+
+    @Test
     void comparisonRunsAllThreeEngineTypes() {
-        var results = templateService.runComparison(108.0, 0.95);
+        var results = templateService.runComparison(108.0, 0.95, 13.6);
 
         assertThat(results).hasSize(3);
         // Oil pressure 0.95 is below petrol(1.0) and diesel(1.2) minimums, but not hybrid(0.9).
@@ -45,6 +58,8 @@ class SensorThresholdTemplateTest {
                 .filter(r -> r.getEngineType() == EngineType.HYBRID)
                 .findFirst().orElseThrow();
         assertThat(lubricationProblems(hybrid)).isZero();
+        // 13.6 V is below the hybrid minimum, so the electrical rule fires for hybrid.
+        assertThat(electricalProblems(hybrid)).isPositive();
     }
 
     private long coolingProblems(TemplateScenarioResult result) {
@@ -53,6 +68,10 @@ class SensorThresholdTemplateTest {
 
     private long lubricationProblems(TemplateScenarioResult result) {
         return countSystem(result, VehicleSystem.LUBRICATION_SYSTEM);
+    }
+
+    private long electricalProblems(TemplateScenarioResult result) {
+        return countSystem(result, VehicleSystem.ELECTRICAL_SYSTEM);
     }
 
     private long countSystem(TemplateScenarioResult result, VehicleSystem system) {

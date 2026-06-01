@@ -2,6 +2,8 @@ template header
 engineType
 maxCoolantTemp
 minOilPressure
+voltageMin
+voltageMax
 
 package rules;
 
@@ -40,6 +42,20 @@ then
         ProblemStatus.ACTIVE,
         Urgency.CRITICAL,
         "Template @{engineType}: oil pressure below @{minOilPressure}"
+    ));
+end
+
+rule "TPL Battery voltage out of range - @{engineType}"
+when
+    Vehicle(engineType == EngineType.@{engineType})
+    SensorReading(name == "battery_voltage", value < @{voltageMin} || value > @{voltageMax})
+    not SystemProblem(system == VehicleSystem.ELECTRICAL_SYSTEM, source == "Template @{engineType}: battery voltage outside [@{voltageMin}, @{voltageMax}]")
+then
+    insert(new SystemProblem(
+        VehicleSystem.ELECTRICAL_SYSTEM,
+        ProblemStatus.ACTIVE,
+        Urgency.HIGH,
+        "Template @{engineType}: battery voltage outside [@{voltageMin}, @{voltageMax}]"
     ));
 end
 
