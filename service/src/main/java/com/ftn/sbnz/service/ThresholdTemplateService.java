@@ -20,7 +20,6 @@ import org.springframework.stereotype.Service;
 import com.ftn.sbnz.model.SensorReading;
 import com.ftn.sbnz.model.SystemProblem;
 import com.ftn.sbnz.model.Vehicle;
-import com.ftn.sbnz.model.VehicleThresholds;
 import com.ftn.sbnz.model.enums.EngineType;
 
 /**
@@ -35,11 +34,11 @@ import com.ftn.sbnz.model.enums.EngineType;
 public class ThresholdTemplateService {
     private static final String TEMPLATE_PATH = "/templatetable/sensor_thresholds.drt";
 
-    /** Parameter table from the proposal (coolant / oil pressure per engine type). */
-    private final List<VehicleThresholds> thresholdTable = List.of(
-            new VehicleThresholds(EngineType.PETROL, 110.0, 1.0, 22.0, 2.3),
-            new VehicleThresholds(EngineType.DIESEL, 105.0, 1.2, 12.0, 2.3),
-            new VehicleThresholds(EngineType.HYBRID, 100.0, 0.9, 18.0, 2.3));
+    /** Parameter table from the proposal (coolant / oil pressure / charging voltage per engine type). */
+    private final List<SensorThresholdRow> thresholdTable = List.of(
+            new SensorThresholdRow(EngineType.PETROL, 110.0, 1.0, 13.5, 14.8),
+            new SensorThresholdRow(EngineType.DIESEL, 105.0, 1.2, 13.5, 14.8),
+            new SensorThresholdRow(EngineType.HYBRID, 100.0, 0.9, 13.8, 15.2));
 
     /** Compiles the .drt template against the parameter table into plain DRL text. */
     public String generateDrl() {
@@ -54,7 +53,8 @@ public class ThresholdTemplateService {
     }
 
     /** Runs one sensor scenario against the generated rules for a single engine type. */
-    public TemplateScenarioResult runScenario(EngineType engineType, double coolantTemp, double oilPressure) {
+    public TemplateScenarioResult runScenario(EngineType engineType, double coolantTemp, double oilPressure,
+            double voltage) {
         KieSession session = buildSession();
         List<String> firedRules = new ArrayList<>();
         session.addEventListener(new DefaultAgendaEventListener() {
@@ -68,22 +68,23 @@ public class ThresholdTemplateService {
             session.insert(vehicle);
             session.insert(new SensorReading("coolant_temp", coolantTemp));
             session.insert(new SensorReading("oil_pressure", oilPressure));
+            session.insert(new SensorReading("battery_voltage", voltage));
 
             int firedRuleCount = session.fireAllRules();
 
             List<SystemProblem> problems = collect(session, SystemProblem.class);
-            return new TemplateScenarioResult(engineType, coolantTemp, oilPressure, firedRuleCount, firedRules,
-                    problems);
+            return new TemplateScenarioResult(engineType, coolantTemp, oilPressure, voltage, firedRuleCount,
+                    firedRules, problems);
         } finally {
             session.dispose();
         }
     }
 
     /** Runs the same sensor readings across all engine types to show the threshold difference. */
-    public List<TemplateScenarioResult> runComparison(double coolantTemp, double oilPressure) {
+    public List<TemplateScenarioResult> runComparison(double coolantTemp, double oilPressure, double voltage) {
         List<TemplateScenarioResult> results = new ArrayList<>();
-        for (VehicleThresholds row : thresholdTable) {
-            results.add(runScenario(row.getEngineType(), coolantTemp, oilPressure));
+        for (SensorThresholdRow row : thresholdTable) {
+            results.add(runScenario(row.getEngineType(), coolantTemp, oilPressure, voltage));
         }
         return results;
     }
