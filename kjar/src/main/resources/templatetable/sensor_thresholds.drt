@@ -1,0 +1,46 @@
+template header
+engineType
+maxCoolantTemp
+minOilPressure
+
+package rules;
+
+import com.ftn.sbnz.model.Vehicle;
+import com.ftn.sbnz.model.SensorReading;
+import com.ftn.sbnz.model.SystemProblem;
+import com.ftn.sbnz.model.enums.EngineType;
+import com.ftn.sbnz.model.enums.ProblemStatus;
+import com.ftn.sbnz.model.enums.Urgency;
+import com.ftn.sbnz.model.enums.VehicleSystem;
+
+template "sensor-thresholds"
+
+rule "TPL Coolant overheating - @{engineType}"
+when
+    Vehicle(engineType == EngineType.@{engineType})
+    SensorReading(name == "coolant_temp", value > @{maxCoolantTemp})
+    not SystemProblem(system == VehicleSystem.COOLING_SYSTEM, source == "Template @{engineType}: coolant above @{maxCoolantTemp}")
+then
+    insert(new SystemProblem(
+        VehicleSystem.COOLING_SYSTEM,
+        ProblemStatus.ACTIVE,
+        Urgency.HIGH,
+        "Template @{engineType}: coolant above @{maxCoolantTemp}"
+    ));
+end
+
+rule "TPL Low oil pressure - @{engineType}"
+when
+    Vehicle(engineType == EngineType.@{engineType})
+    SensorReading(name == "oil_pressure", value < @{minOilPressure})
+    not SystemProblem(system == VehicleSystem.LUBRICATION_SYSTEM, source == "Template @{engineType}: oil pressure below @{minOilPressure}")
+then
+    insert(new SystemProblem(
+        VehicleSystem.LUBRICATION_SYSTEM,
+        ProblemStatus.ACTIVE,
+        Urgency.CRITICAL,
+        "Template @{engineType}: oil pressure below @{minOilPressure}"
+    ));
+end
+
+end template

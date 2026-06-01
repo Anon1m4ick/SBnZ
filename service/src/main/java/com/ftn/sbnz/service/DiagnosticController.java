@@ -2,10 +2,12 @@ package com.ftn.sbnz.service;
 
 import java.util.List;
 
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ftn.sbnz.model.DiagnosticReport;
@@ -13,14 +15,18 @@ import com.ftn.sbnz.model.DiagnosticRequest;
 import com.ftn.sbnz.model.Diagnosis;
 import com.ftn.sbnz.model.Recommendation;
 import com.ftn.sbnz.model.RuleTrace;
+import com.ftn.sbnz.model.enums.EngineType;
 
 @RestController
 @RequestMapping("/api/diagnostics")
 public class DiagnosticController {
     private final DiagnosticService diagnosticService;
+    private final ThresholdTemplateService thresholdTemplateService;
 
-    public DiagnosticController(DiagnosticService diagnosticService) {
+    public DiagnosticController(DiagnosticService diagnosticService,
+            ThresholdTemplateService thresholdTemplateService) {
         this.diagnosticService = diagnosticService;
+        this.thresholdTemplateService = thresholdTemplateService;
     }
 
     @GetMapping("/demo")
@@ -66,6 +72,26 @@ public class DiagnosticController {
     @GetMapping("/rules")
     public List<RuleInfo> rules() {
         return diagnosticService.ruleCatalog();
+    }
+
+    @GetMapping(value = "/template/drl", produces = MediaType.TEXT_PLAIN_VALUE)
+    public String templateDrl() {
+        return thresholdTemplateService.generateDrl();
+    }
+
+    @GetMapping("/template/demo")
+    public List<TemplateScenarioResult> templateDemo(
+            @RequestParam(defaultValue = "108") double coolant,
+            @RequestParam(defaultValue = "0.95") double oil) {
+        return thresholdTemplateService.runComparison(coolant, oil);
+    }
+
+    @GetMapping("/template/scenario")
+    public TemplateScenarioResult templateScenario(
+            @RequestParam EngineType engine,
+            @RequestParam(defaultValue = "108") double coolant,
+            @RequestParam(defaultValue = "0.95") double oil) {
+        return thresholdTemplateService.runScenario(engine, coolant, oil);
     }
 
     @PostMapping
