@@ -86,3 +86,39 @@ java -version
 javac -version
 mvn -version
 ```
+
+## Homework 4 – Rule Template mechanism (DZ4)
+
+Implements proposal section **4.3 Template Mechanism – Parameterization by Vehicle Type**:
+
+- Template file: `kjar/src/main/resources/templatetable/sensor_thresholds.drt`
+- Parameter table: `VehicleThresholds` rows for PETROL / DIESEL / HYBRID in `ThresholdTemplateService`
+- Runtime compilation: `ObjectDataCompiler` → generated DRL → `KieSession` (isolated from main `vehicle-diagnosis.drl`)
+
+**Threshold table :**
+
+| engineType | maxCoolantTemp | minOilPressure |
+|------------|----------------|----------------|
+| PETROL     | 110            | 1.0            |
+| DIESEL     | 105            | 1.2            |
+| HYBRID     | 100            | 0.9            |
+
+**Test:** `mvn -pl service -Dtest=SensorThresholdTemplateTest test`
+
+After starting the service (`java -jar service/target/service-0.0.1-SNAPSHOT.jar`)
+
+| URL | What it shows |
+|-----|----------------|
+| http://localhost:8080/api/diagnostics/template/drl | Generated DRL from `.drt` + parameter table (6 rules: 2 per engine type) |
+| http://localhost:8080/api/diagnostics/template/demo?coolant=108&oil=0.95 | Same sensor readings, **different** results for PETROL / DIESEL / HYBRID |
+| http://localhost:8080/api/diagnostics/template/scenario?engine=DIESEL&coolant=108&oil=5.0 | Single engine type scenario |
+
+**Expected demo result** (`/template/demo?coolant=108&oil=0.95`):
+
+- **PETROL** (threshold 110°C): coolant 108 → no overheating rule; oil 0.95 → low oil pressure rule fires
+- **DIESEL** (threshold 105°C): both overheating and low oil pressure rules fire
+- **HYBRID** (threshold 100°C): overheating fires; oil 0.95 is above 0.9 → no oil rule
+
+Optional query parameters for `/template/demo`: `coolant`, `oil` (defaults: `108`, `0.95`).
+
+For `/template/scenario`: required `engine` (`PETROL`, `DIESEL`, or `HYBRID`); optional `coolant`, `oil`.
