@@ -125,3 +125,56 @@ After starting the service (`java -jar service/target/service-0.0.1-SNAPSHOT.jar
 Optional query parameters for `/template/demo`: `coolant`, `oil`, `voltage` (defaults: `108`, `0.95`, `13.6`).
 
 For `/template/scenario`: required `engine` (`PETROL`, `DIESEL`, or `HYBRID`); optional `coolant`, `oil`, `voltage`.
+
+## CEP – Sensor Time-Series Trend Detection
+
+Implements proposal section **5.2 CEP** with a separate KieBase and **pseudo clock** demo (no real-time waiting):
+
+- Event classes: `SensorEvent`, `DtcEvent` (`@Role(EVENT)`, `@Timestamp`, `@Expires`)
+- Result fact: `CepAlert`
+- Rules file: `kjar/src/main/resources/rules/cep/sensor-trend-rules.drl`
+- Service: `CepService` uses `ClockTypeOption.get("pseudo")` and `SessionPseudoClock.advanceTime(...)`
+
+| Rule | Window | Entry point | Trigger |
+|------|--------|-------------|---------|
+| CEP-01 Overheating trend | 5 min | `obdStream` | coolant rise > 15°C |
+| CEP-02 Voltage oscillation | 2 min | `obdStream` | max − min voltage > 1.5 V |
+| CEP-03 Sporadic misfire | 10 min | `dtcStream` | ≥ 3 P030x DTC events |
+
+**Test:** `mvn -pl service -Dtest=CepRulesTest test`
+
+After starting the service:
+
+| URL | What it shows |
+|-----|----------------|
+| http://localhost:8080/api/diagnostics/cep/overheating | Pseudo-clock demo: rising coolant trend → `OVERHEATING_TREND` alert |
+| http://localhost:8080/api/diagnostics/cep/voltage | Pseudo-clock demo: voltage oscillation → `VOLTAGE_OSCILLATION` alert |
+| http://localhost:8080/api/diagnostics/cep/misfire | Pseudo-clock demo: 3 misfire DTCs → `SPORADIC_MISFIRE` alert |
+
+## Backward Chaining – Fault Hypothesis Verification
+
+Implements proposal section **5.4 Backward Chaining**:
+
+- Model: `CausalLink` with `@Position` for recursive query bindings
+- Rules file: `kjar/src/main/resources/rules/backward/fault-causes.drl`
+- Queries: `isRootCause(x, y)` (recursive), `lambdaHypothesis()` (DTC P0131/P0132/P0134 or O2 + fuel consumption)
+
+**Test:** `mvn -pl service -Dtest=BackwardChainingTest test`
+
+| URL | What it shows |
+|-----|----------------|
+| `POST /api/diagnostics/backward/verify-lambda` | Body: `DiagnosticRequest` JSON → `{ confirmed, matchingBindings, queryName }` |
+| `GET /api/diagnostics/backward/root-cause?effect=BLACK_SMOKE` | Recursive root causes for an effect (e.g. `EGR_VALVE`, `CLOGGED_DPF`) |
+
+## Implementation Status (for proposal update)
+
+| Mechanism | Status |
+|-----------|--------|
+| Forward chaining (20 basic rules) | Done |
+| Template mechanism (DZ4) | Done |
+| CEP with pseudo clock | Done |
+| Backward chaining (queries) | Done |
+| Client UI | Planned |
+| External test-data files | Planned |
+
+> **Note:** Update `Project_Proposal_Vehicle_Fault_Diagnostics.pdf` manually to reflect the current implementation status before final defense.
