@@ -1,0 +1,71 @@
+package cep;
+
+import com.ftn.sbnz.model.events.SensorEvent;
+import com.ftn.sbnz.model.events.DtcEvent;
+import com.ftn.sbnz.model.events.CepAlert;
+
+rule "CEP-01 Overheating trend sustained rise over 5 minutes"
+when
+    SensorEvent(name == "coolant_temp", $vehicleId : vehicleId) from entry-point "obdStream"
+    $minTemp : Number() from accumulate(
+        SensorEvent(name == "coolant_temp", vehicleId == $vehicleId, $v : value)
+            over window:time(5m) from entry-point "obdStream",
+        min($v)
+    )
+    $maxTemp : Number() from accumulate(
+        SensorEvent(name == "coolant_temp", vehicleId == $vehicleId, $v : value)
+            over window:time(5m) from entry-point "obdStream",
+        max($v)
+    )
+    eval($maxTemp.doubleValue() - $minTemp.doubleValue() > 15)
+    not CepAlert(type == "OVERHEATING_TREND", vehicleId == $vehicleId)
+then
+    insert(new CepAlert(
+        "OVERHEATING_TREND",
+        $vehicleId,
+        "Coolant temperature rose more than 15C within 5 minutes",
+        new java.util.Date()
+    ));
+end
+
+rule "CEP-02 Battery voltage oscillation over 2 minutes"
+when
+    SensorEvent(name == "battery_voltage", $vehicleId : vehicleId) from entry-point "obdStream"
+    $maxVoltage : Number() from accumulate(
+        SensorEvent(name == "battery_voltage", vehicleId == $vehicleId, $v : value)
+            over window:time(2m) from entry-point "obdStream",
+        max($v)
+    )
+    $minVoltage : Number() from accumulate(
+        SensorEvent(name == "battery_voltage", vehicleId == $vehicleId, $v : value)
+            over window:time(2m) from entry-point "obdStream",
+        min($v)
+    )
+    eval($maxVoltage.doubleValue() - $minVoltage.doubleValue() > 1.5)
+    not CepAlert(type == "VOLTAGE_OSCILLATION", vehicleId == $vehicleId)
+then
+    insert(new CepAlert(
+        "VOLTAGE_OSCILLATION",
+        $vehicleId,
+        "Battery voltage oscillated more than 1.5V within 2 minutes",
+        new java.util.Date()
+    ));
+end
+
+rule "CEP-03 Sporadic misfire three or more DTCs in 10 minutes"
+when
+    DtcEvent(code matches "P030[0-9]", $vehicleId : vehicleId) from entry-point "dtcStream"
+    Number(intValue >= 3) from accumulate(
+        $d : DtcEvent(code matches "P030[0-9]", vehicleId == $vehicleId)
+            over window:time(10m) from entry-point "dtcStream",
+        count($d)
+    )
+    not CepAlert(type == "SPORADIC_MISFIRE", vehicleId == $vehicleId)
+then
+    insert(new CepAlert(
+        "SPORADIC_MISFIRE",
+        $vehicleId,
+        "Three or more misfire DTCs detected within 10 minutes",
+        new java.util.Date()
+    ));
+end
