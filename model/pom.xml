@@ -13,4 +13,12 @@
 
     <artifactId>model</artifactId>
     <name>model</name>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.kie</groupId>
+            <artifactId>kie-api</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+    </dependencies>
 </project>
