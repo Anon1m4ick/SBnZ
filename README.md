@@ -7,6 +7,7 @@ The project structure:
 - `model` contains the domain facts used by Drools.
 - `kjar` contains the KIE module and DRL rules.
 - `service` is a Spring Boot REST application that activates the rules.
+- `frontend` contains the React + TypeScript Vite client for demos.
 
 ## Implemented Homework Scope
 
@@ -14,6 +15,8 @@ The project structure:
 - Data model: `Vehicle`, `Symptom`, `DTCCode`, `SensorReading`, `SystemProblem`, `FaultCandidate`, `Diagnosis`, `Recommendation`, `RuleTrace`, and supporting enums.
 - The project follows the forward-chaining route by implementing the 20 rules from the proposal's "Basic Rules" table as ordinary Drools production rules: 10 for Member 1 and 10 for Member 2.
 - Rule activation demo on Spring Boot startup and through `GET /api/diagnostics/demo`.
+- External JSON datasets are available under `service/src/main/resources/testdata` and can be loaded through REST without recompiling.
+- The frontend demonstrates forward diagnosis, editable JSON evaluation, templates, CEP, backward chaining, datasets, and the rules catalog.
 
 ## Rules
 
@@ -50,7 +53,10 @@ There are also two supporting production rules: one turns candidates into final 
 ```powershell
 mvn clean test
 mvn -DskipTests package
+`Linux`
 export JAVA_HOME=~/Library/Java/JavaVirtualMachines/corretto-17.0.13/Contents/Home
+`Windows`
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-17"
 java -jar service\target\service-0.0.1-SNAPSHOT.jar
 ```
 
@@ -72,6 +78,9 @@ Useful endpoints:
 - `GET /api/diagnostics/demo/trace` - fired-rule trace only
 - `GET /api/diagnostics/rules` - implemented rule catalog
 - `POST /api/diagnostics/evaluate` - evaluate a custom diagnostic request
+- `GET /api/diagnostics/datasets` - list external JSON datasets
+- `GET /api/diagnostics/datasets/{name}` - load a dataset as raw `DiagnosticRequest`
+- `GET /api/diagnostics/datasets/{name}/report` - evaluate a dataset and return a `DiagnosticReport`
 
 For `spring-boot:run`, first install the local modules once:
 
@@ -166,6 +175,34 @@ Implements proposal section **5.4 Backward Chaining**:
 | `POST /api/diagnostics/backward/verify-lambda` | Body: `DiagnosticRequest` JSON → `{ confirmed, matchingBindings, queryName }` |
 | `GET /api/diagnostics/backward/root-cause?effect=BLACK_SMOKE` | Recursive root causes for an effect (e.g. `EGR_VALVE`, `CLOGGED_DPF`) |
 
+## Additional Implemented Endpoints
+
+New CEP proposal endpoints:
+
+- `GET /api/diagnostics/cep/maf` - declining MAF trend -> `MAF_DECLINING_TREND`
+- `GET /api/diagnostics/cep/tyre-pressure` - rapid tyre pressure loss -> `TYRE_PRESSURE_DROP`
+- `GET /api/diagnostics/cep/critical-warnings` - repeated critical warning DTCs -> `REPEATED_CRITICAL_WARNINGS`
+
+External dataset endpoints:
+
+- `GET /api/diagnostics/datasets`
+- `GET /api/diagnostics/datasets/{name}`
+- `GET /api/diagnostics/datasets/{name}/report`
+
+## Client Application
+
+The client is a Vite + React + TypeScript single-page app.
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+The dev server runs on `http://localhost:5173` and proxies `/api` to `http://localhost:8080`.
+
+The UI covers forward reports, datasets, editable JSON evaluation, templates, all six CEP demos, backward chaining, and the rules catalog.
+
 ## Implementation Status (for proposal update)
 
 | Mechanism | Status |
@@ -174,7 +211,7 @@ Implements proposal section **5.4 Backward Chaining**:
 | Template mechanism (DZ4) | Done |
 | CEP with pseudo clock | Done |
 | Backward chaining (queries) | Done |
-| Client UI | Planned |
-| External test-data files | Planned |
+| Client UI | Done |
+| External test-data files | Done |
 
 > **Note:** Update `Project_Proposal_Vehicle_Fault_Diagnostics.pdf` manually to reflect the current implementation status before final defense.

@@ -1,0 +1,25 @@
+{
+  "vehicle": {
+    "vehicleId": "VIN-DATA-003",
+    "make": "Skoda",
+    "model": "Octavia 1.9 TDI",
+    "engineType": "DIESEL",
+    "modelYear": 2009,
+    "odometerKm": 214000,
+    "engineRunning": true
+  },
+  "thresholds": {
+    "engineType": "DIESEL",
+    "maxCoolantTemp": 105.0,
+    "minOilPressure": 1.2,
+    "minMafNormal": 12.0,
+    "recommendedTyrePressure": 2.3
+  },
+  "symptoms": [
+    { "type": "TPMS_WARNING", "context": "ALWAYS", "severity": 3, "detail": "TPMS warning is active" }
+  ],
+  "dtcCodes": [],
+  "sensorReadings": [
+    { "name": "tyre_pressure", "value": 2.0 }
+  ]
+}

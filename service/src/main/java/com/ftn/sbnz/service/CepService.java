@@ -82,6 +82,57 @@ public class CepService {
         }
     }
 
+    public List<CepAlert> runMafDecliningDemo() {
+        KieSession session = newPseudoClockSession();
+        try {
+            EntryPoint obdStream = session.getEntryPoint("obdStream");
+            SessionPseudoClock clock = session.getSessionClock();
+            double[] mafReadings = { 15.0, 13.4, 11.2, 9.6, 8.8 };
+            for (double reading : mafReadings) {
+                obdStream.insert(sensorEvent("maf", reading, clock));
+                clock.advanceTime(60, TimeUnit.SECONDS);
+                session.fireAllRules();
+            }
+            return collectAlerts(session);
+        } finally {
+            session.dispose();
+        }
+    }
+
+    public List<CepAlert> runTyrePressureDropDemo() {
+        KieSession session = newPseudoClockSession();
+        try {
+            EntryPoint obdStream = session.getEntryPoint("obdStream");
+            SessionPseudoClock clock = session.getSessionClock();
+            double[] pressures = { 2.35, 2.26, 2.04, 1.92 };
+            for (double pressure : pressures) {
+                obdStream.insert(sensorEvent("tyre_pressure", pressure, clock));
+                clock.advanceTime(45, TimeUnit.SECONDS);
+                session.fireAllRules();
+            }
+            return collectAlerts(session);
+        } finally {
+            session.dispose();
+        }
+    }
+
+    public List<CepAlert> runRepeatedCriticalWarningsDemo() {
+        KieSession session = newPseudoClockSession();
+        try {
+            EntryPoint dtcStream = session.getEntryPoint("dtcStream");
+            SessionPseudoClock clock = session.getSessionClock();
+            String[] codes = { "P0217", "P0524" };
+            for (String code : codes) {
+                dtcStream.insert(new DtcEvent(DEMO_VEHICLE_ID, code, new Date(clock.getCurrentTime())));
+                clock.advanceTime(4, TimeUnit.MINUTES);
+                session.fireAllRules();
+            }
+            return collectAlerts(session);
+        } finally {
+            session.dispose();
+        }
+    }
+
     private KieSession newPseudoClockSession() {
         KieSessionConfiguration configuration = KieServices.Factory.get().newKieSessionConfiguration();
         configuration.setOption(ClockTypeOption.get("pseudo"));

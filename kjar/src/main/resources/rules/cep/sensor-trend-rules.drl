@@ -69,3 +69,69 @@ then
         new java.util.Date()
     ));
 end
+
+rule "M1-CEP-03 MAF declining trend over 5 minutes"
+when
+    SensorEvent(name == "maf", value < 10.0, $vehicleId : vehicleId) from entry-point "obdStream"
+    $maxMaf : Number() from accumulate(
+        SensorEvent(name == "maf", vehicleId == $vehicleId, $v : value)
+            over window:time(5m) from entry-point "obdStream",
+        max($v)
+    )
+    $minMaf : Number() from accumulate(
+        SensorEvent(name == "maf", vehicleId == $vehicleId, $v : value)
+            over window:time(5m) from entry-point "obdStream",
+        min($v)
+    )
+    eval($maxMaf.doubleValue() - $minMaf.doubleValue() > 4.0)
+    not CepAlert(type == "MAF_DECLINING_TREND", vehicleId == $vehicleId)
+then
+    insert(new CepAlert(
+        "MAF_DECLINING_TREND",
+        $vehicleId,
+        "MAF readings declined by more than 4 g/s and ended below the expected diesel threshold",
+        new java.util.Date()
+    ));
+end
+
+rule "M2-CEP-02 Rapid tyre pressure drop over 3 minutes"
+when
+    SensorEvent(name == "tyre_pressure", $vehicleId : vehicleId) from entry-point "obdStream"
+    $maxPressure : Number() from accumulate(
+        SensorEvent(name == "tyre_pressure", vehicleId == $vehicleId, $v : value)
+            over window:time(3m) from entry-point "obdStream",
+        max($v)
+    )
+    $minPressure : Number() from accumulate(
+        SensorEvent(name == "tyre_pressure", vehicleId == $vehicleId, $v : value)
+            over window:time(3m) from entry-point "obdStream",
+        min($v)
+    )
+    eval($maxPressure.doubleValue() > 0.0 && (($maxPressure.doubleValue() - $minPressure.doubleValue()) / $maxPressure.doubleValue()) > 0.15)
+    not CepAlert(type == "TYRE_PRESSURE_DROP", vehicleId == $vehicleId)
+then
+    insert(new CepAlert(
+        "TYRE_PRESSURE_DROP",
+        $vehicleId,
+        "Tyre pressure dropped by more than 15 percent within 3 minutes",
+        new java.util.Date()
+    ));
+end
+
+rule "M2-CEP-03 Repeated critical warnings within 10 minutes"
+when
+    DtcEvent(code in ("P0217", "P0524", "P0562", "P0563"), $vehicleId : vehicleId) from entry-point "dtcStream"
+    Number(intValue >= 2) from accumulate(
+        $d : DtcEvent(code in ("P0217", "P0524", "P0562", "P0563"), vehicleId == $vehicleId)
+            over window:time(10m) from entry-point "dtcStream",
+        count($d)
+    )
+    not CepAlert(type == "REPEATED_CRITICAL_WARNINGS", vehicleId == $vehicleId)
+then
+    insert(new CepAlert(
+        "REPEATED_CRITICAL_WARNINGS",
+        $vehicleId,
+        "Two or more critical warning DTC events occurred within 10 minutes",
+        new java.util.Date()
+    ));
+end

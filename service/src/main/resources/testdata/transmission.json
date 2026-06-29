@@ -1,0 +1,23 @@
+{
+  "vehicle": {
+    "vehicleId": "VIN-DATA-002",
+    "make": "Toyota",
+    "model": "Corolla 1.6",
+    "engineType": "PETROL",
+    "modelYear": 2012,
+    "odometerKm": 142000,
+    "engineRunning": true
+  },
+  "thresholds": {
+    "engineType": "PETROL",
+    "maxCoolantTemp": 110.0,
+    "minOilPressure": 1.0,
+    "minMafNormal": 10.0,
+    "recommendedTyrePressure": 2.3
+  },
+  "symptoms": [
+    { "type": "GEAR_CHANGE_JERK", "context": "GEAR_CHANGE", "severity": 3, "detail": "Jerking occurs during gear change" }
+  ],
+  "dtcCodes": [],
+  "sensorReadings": []
+}

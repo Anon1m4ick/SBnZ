@@ -40,4 +40,28 @@ class CepRulesTest {
         assertThat(alerts).isNotEmpty();
         assertThat(alerts).extracting(CepAlert::getType).contains("SPORADIC_MISFIRE");
     }
+
+    @Test
+    void mafDecliningDemoCreatesAlert() {
+        var alerts = cepService.runMafDecliningDemo();
+
+        assertThat(alerts).isNotEmpty();
+        assertThat(alerts).extracting(CepAlert::getType).contains("MAF_DECLINING_TREND");
+    }
+
+    @Test
+    void tyrePressureDropDemoCreatesAlert() {
+        var alerts = cepService.runTyrePressureDropDemo();
+
+        assertThat(alerts).isNotEmpty();
+        assertThat(alerts).extracting(CepAlert::getType).contains("TYRE_PRESSURE_DROP");
+    }
+
+    @Test
+    void repeatedCriticalWarningsDemoCreatesAlert() {
+        var alerts = cepService.runRepeatedCriticalWarningsDemo();
+
+        assertThat(alerts).isNotEmpty();
+        assertThat(alerts).extracting(CepAlert::getType).contains("REPEATED_CRITICAL_WARNINGS");
+    }
 }
