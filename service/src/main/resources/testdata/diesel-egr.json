@@ -1,0 +1,33 @@
+{
+  "vehicle": {
+    "vehicleId": "VIN-DATA-001",
+    "make": "Volkswagen",
+    "model": "Golf 5 2.0 TDI",
+    "engineType": "DIESEL",
+    "modelYear": 2007,
+    "odometerKm": 187000,
+    "engineRunning": true
+  },
+  "thresholds": {
+    "engineType": "DIESEL",
+    "maxCoolantTemp": 105.0,
+    "minOilPressure": 1.2,
+    "minMafNormal": 12.0,
+    "recommendedTyrePressure": 2.3
+  },
+  "symptoms": [
+    { "type": "WARNING_CHECK_ENGINE", "context": "ALWAYS", "severity": 4, "detail": "Check Engine warning is active" },
+    { "type": "BLACK_EXHAUST_SMOKE", "context": "ACCELERATION", "severity": 4, "detail": "Black smoke under acceleration" },
+    { "type": "POWER_LOSS", "context": "ACCELERATION", "severity": 3, "detail": "Noticeable power loss" },
+    { "type": "INCREASED_FUEL_CONSUMPTION", "context": "ALWAYS", "severity": 3, "detail": "Fuel consumption increased" }
+  ],
+  "dtcCodes": [
+    { "code": "P0401", "status": "ACTIVE", "subsystem": "EGR_SYSTEM" },
+    { "code": "P0302", "status": "ACTIVE", "subsystem": "IGNITION_SYSTEM" },
+    { "code": "P0131", "status": "ACTIVE", "subsystem": "FUEL_AIR_SYSTEM" }
+  ],
+  "sensorReadings": [
+    { "name": "maf", "value": 8.2 },
+    { "name": "tyre_pressure", "value": 2.3 }
+  ]
+}

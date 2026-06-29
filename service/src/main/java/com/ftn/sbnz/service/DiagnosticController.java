@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,13 +25,16 @@ public class DiagnosticController {
     private final DiagnosticService diagnosticService;
     private final ThresholdTemplateService thresholdTemplateService;
     private final CepService cepService;
+    private final TestDataService testDataService;
 
     public DiagnosticController(DiagnosticService diagnosticService,
             ThresholdTemplateService thresholdTemplateService,
-            CepService cepService) {
+            CepService cepService,
+            TestDataService testDataService) {
         this.diagnosticService = diagnosticService;
         this.thresholdTemplateService = thresholdTemplateService;
         this.cepService = cepService;
+        this.testDataService = testDataService;
     }
 
     @GetMapping("/demo")
@@ -78,6 +82,21 @@ public class DiagnosticController {
         return diagnosticService.ruleCatalog();
     }
 
+    @GetMapping("/datasets")
+    public List<String> datasets() {
+        return testDataService.listDatasets();
+    }
+
+    @GetMapping("/datasets/{name}")
+    public DiagnosticRequest dataset(@PathVariable String name) {
+        return testDataService.loadDataset(name);
+    }
+
+    @GetMapping("/datasets/{name}/report")
+    public DiagnosticReport datasetReport(@PathVariable String name) {
+        return diagnosticService.evaluate(testDataService.loadDataset(name));
+    }
+
     @GetMapping(value = "/template/drl", produces = MediaType.TEXT_PLAIN_VALUE)
     public String templateDrl() {
         return thresholdTemplateService.generateDrl();
@@ -123,6 +142,21 @@ public class DiagnosticController {
     @GetMapping("/cep/misfire")
     public List<CepAlert> cepMisfireDemo() {
         return cepService.runSporadicMisfireDemo();
+    }
+
+    @GetMapping("/cep/maf")
+    public List<CepAlert> cepMafDemo() {
+        return cepService.runMafDecliningDemo();
+    }
+
+    @GetMapping("/cep/tyre-pressure")
+    public List<CepAlert> cepTyrePressureDemo() {
+        return cepService.runTyrePressureDropDemo();
+    }
+
+    @GetMapping("/cep/critical-warnings")
+    public List<CepAlert> cepCriticalWarningsDemo() {
+        return cepService.runRepeatedCriticalWarningsDemo();
     }
 
     @PostMapping("/backward/verify-lambda")
