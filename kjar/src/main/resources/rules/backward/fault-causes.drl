@@ -1,0 +1,22 @@
+package backward;
+
+import com.ftn.sbnz.model.CausalLink;
+import com.ftn.sbnz.model.DTCCode;
+import com.ftn.sbnz.model.SensorReading;
+import com.ftn.sbnz.model.Symptom;
+import com.ftn.sbnz.model.enums.DTCStatus;
+import com.ftn.sbnz.model.enums.SymptomType;
+
+query isRootCause(String x, String y)
+    CausalLink(x, y;)
+    or
+    ( CausalLink(z, y;) and isRootCause(x, z;) )
+end
+
+query lambdaHypothesis()
+    DTCCode(code == "P0131" || code == "P0132" || code == "P0134", status == DTCStatus.ACTIVE)
+    or (
+        SensorReading(name == "o2_sensor_b1s1", value < 0.1)
+        and Symptom(type == SymptomType.INCREASED_FUEL_CONSUMPTION)
+    )
+end

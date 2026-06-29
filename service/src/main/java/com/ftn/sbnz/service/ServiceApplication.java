@@ -34,6 +34,9 @@ public class ServiceApplication {
         kieHelper.addResource(
                 ResourceFactory.newClassPathResource("rules/vehicle-diagnosis.drl", getClass().getClassLoader()),
                 ResourceType.DRL);
+        kieHelper.addResource(
+                ResourceFactory.newClassPathResource("rules/backward/fault-causes.drl", getClass().getClassLoader()),
+                ResourceType.DRL);
 
         Results results = kieHelper.verify();
         if (results.hasMessages(Message.Level.ERROR)) {
@@ -41,6 +44,23 @@ public class ServiceApplication {
                     .map(Message::toString)
                     .collect(Collectors.joining(System.lineSeparator()));
             throw new IllegalStateException("Drools rule compilation failed:" + System.lineSeparator() + errors);
+        }
+        return kieHelper.build(EventProcessingOption.STREAM);
+    }
+
+    @Bean
+    public KieBase cepKieBase() {
+        KieHelper kieHelper = new KieHelper();
+        kieHelper.addResource(
+                ResourceFactory.newClassPathResource("rules/cep/sensor-trend-rules.drl", getClass().getClassLoader()),
+                ResourceType.DRL);
+
+        Results results = kieHelper.verify();
+        if (results.hasMessages(Message.Level.ERROR)) {
+            String errors = results.getMessages(Message.Level.ERROR).stream()
+                    .map(Message::toString)
+                    .collect(Collectors.joining(System.lineSeparator()));
+            throw new IllegalStateException("CEP rule compilation failed:" + System.lineSeparator() + errors);
         }
         return kieHelper.build(EventProcessingOption.STREAM);
     }

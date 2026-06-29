@@ -9,7 +9,12 @@ import java.util.List;
 import org.kie.api.KieBase;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.ClassObjectFilter;
+import org.kie.api.runtime.rule.QueryResults;
+import org.kie.api.runtime.rule.QueryResultsRow;
+import org.kie.api.runtime.rule.Variable;
 import org.springframework.stereotype.Service;
+
+import com.ftn.sbnz.model.CausalLink;
 
 import com.ftn.sbnz.model.DTCCode;
 import com.ftn.sbnz.model.DiagnosticReport;
@@ -122,6 +127,61 @@ public class DiagnosticService {
         } finally {
             kieSession.dispose();
         }
+    }
+
+    public BackwardVerificationResult verifyLambdaHypothesis(DiagnosticRequest request) {
+        KieSession kieSession = kieBase.newKieSession();
+        try {
+            insertRequestFacts(kieSession, request);
+            QueryResults results = kieSession.getQueryResults("lambdaHypothesis");
+            int bindings = 0;
+            for (QueryResultsRow ignored : results) {
+                bindings++;
+            }
+            return new BackwardVerificationResult(bindings > 0, bindings, "lambdaHypothesis");
+        } finally {
+            kieSession.dispose();
+        }
+    }
+
+    public List<String> findRootCauses(String effect) {
+        KieSession kieSession = kieBase.newKieSession();
+        try {
+            for (CausalLink link : defaultCausalLinks()) {
+                kieSession.insert(link);
+            }
+            QueryResults results = kieSession.getQueryResults("isRootCause", Variable.v, effect);
+            List<String> rootCauses = new ArrayList<>();
+            for (QueryResultsRow row : results) {
+                rootCauses.add((String) row.get("x"));
+            }
+            return rootCauses.stream().distinct().sorted().toList();
+        } finally {
+            kieSession.dispose();
+        }
+    }
+
+    private void insertRequestFacts(KieSession kieSession, DiagnosticRequest request) {
+        kieSession.insert(request.getVehicle());
+        kieSession.insert(request.getThresholds());
+        for (Symptom symptom : request.getSymptoms()) {
+            kieSession.insert(symptom);
+        }
+        for (DTCCode dtcCode : request.getDtcCodes()) {
+            kieSession.insert(dtcCode);
+        }
+        for (SensorReading sensorReading : request.getSensorReadings()) {
+            kieSession.insert(sensorReading);
+        }
+    }
+
+    private List<CausalLink> defaultCausalLinks() {
+        return List.of(
+                new CausalLink("CLOGGED_DPF", "EGR_VALVE"),
+                new CausalLink("EGR_VALVE", "BLACK_SMOKE"),
+                new CausalLink("TURBO_ACTUATOR", "POWER_LOSS"),
+                new CausalLink("LAMBDA_SENSOR", "INCREASED_FUEL_CONSUMPTION"),
+                new CausalLink("ALTERNATOR", "LOW_BATTERY_VOLTAGE"));
     }
 
     @SuppressWarnings("unchecked")
