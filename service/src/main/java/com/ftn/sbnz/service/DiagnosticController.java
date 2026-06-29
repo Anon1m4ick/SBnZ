@@ -15,6 +15,7 @@ import com.ftn.sbnz.model.DiagnosticRequest;
 import com.ftn.sbnz.model.Diagnosis;
 import com.ftn.sbnz.model.Recommendation;
 import com.ftn.sbnz.model.RuleTrace;
+import com.ftn.sbnz.model.events.CepAlert;
 import com.ftn.sbnz.model.enums.EngineType;
 
 @RestController
@@ -22,11 +23,14 @@ import com.ftn.sbnz.model.enums.EngineType;
 public class DiagnosticController {
     private final DiagnosticService diagnosticService;
     private final ThresholdTemplateService thresholdTemplateService;
+    private final CepService cepService;
 
     public DiagnosticController(DiagnosticService diagnosticService,
-            ThresholdTemplateService thresholdTemplateService) {
+            ThresholdTemplateService thresholdTemplateService,
+            CepService cepService) {
         this.diagnosticService = diagnosticService;
         this.thresholdTemplateService = thresholdTemplateService;
+        this.cepService = cepService;
     }
 
     @GetMapping("/demo")
@@ -104,5 +108,30 @@ public class DiagnosticController {
     @PostMapping("/evaluate")
     public DiagnosticReport evaluateExplicit(@RequestBody DiagnosticRequest request) {
         return diagnosticService.evaluate(request);
+    }
+
+    @GetMapping("/cep/overheating")
+    public List<CepAlert> cepOverheatingDemo() {
+        return cepService.runOverheatingDemo();
+    }
+
+    @GetMapping("/cep/voltage")
+    public List<CepAlert> cepVoltageDemo() {
+        return cepService.runVoltageOscillationDemo();
+    }
+
+    @GetMapping("/cep/misfire")
+    public List<CepAlert> cepMisfireDemo() {
+        return cepService.runSporadicMisfireDemo();
+    }
+
+    @PostMapping("/backward/verify-lambda")
+    public BackwardVerificationResult verifyLambdaHypothesis(@RequestBody DiagnosticRequest request) {
+        return diagnosticService.verifyLambdaHypothesis(request);
+    }
+
+    @GetMapping("/backward/root-cause")
+    public List<String> findRootCauses(@RequestParam String effect) {
+        return diagnosticService.findRootCauses(effect);
     }
 }

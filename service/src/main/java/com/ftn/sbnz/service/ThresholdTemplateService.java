@@ -23,8 +23,7 @@ import com.ftn.sbnz.model.Vehicle;
 import com.ftn.sbnz.model.enums.EngineType;
 
 /**
- * Demonstrates the Drools rule-template mechanism (.drt) from the proposal
- * section 4.3 "Template Mechanism - Parameterization by Vehicle Type".
+ * Demonstrates the Drools rule-template mechanism (.drt)
  *
  * The template {@code sensor_thresholds.drt} plus the threshold table below are
  * compiled at runtime into concrete DRL rules - one rule set per engine type -
@@ -34,7 +33,7 @@ import com.ftn.sbnz.model.enums.EngineType;
 public class ThresholdTemplateService {
     private static final String TEMPLATE_PATH = "/templatetable/sensor_thresholds.drt";
 
-    /** Parameter table from the proposal (coolant / oil pressure / charging voltage per engine type). */
+    /** Parameter table (coolant / oil pressure / charging voltage per engine type). */
     private final List<SensorThresholdRow> thresholdTable = List.of(
             new SensorThresholdRow(EngineType.PETROL, 110.0, 1.0, 13.5, 14.8),
             new SensorThresholdRow(EngineType.DIESEL, 105.0, 1.2, 13.5, 14.8),
